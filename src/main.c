@@ -35,9 +35,10 @@ typedef struct{
 
 queue_t queue;
 pthread_mutex_t queue_mutex;
-pthread_mutex_init(&queue_mutex, NULL);
 pthread_cond_t not_empty;
 pthread_cond_t not_full;
+
+
 
 int md5_verify(char* candidate, char* target){
     unsigned char digest[EVP_MAX_MD_SIZE];
@@ -63,6 +64,9 @@ int md5_verify(char* candidate, char* target){
 
 
 int main(int argc, char *argv[]) {
+    
+    pthread_mutex_init(&queue_mutex, NULL);
+
     char buffer[256];
     if(argc != 4) {
         printf("Usage: %s <number of threads> <md5_hash> <wordlist_file>\n", argv[0]);
