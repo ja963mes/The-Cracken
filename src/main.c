@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include "hashes.h"
+#include <strings.h>
 
 #define QUEUE_SIZE 1024
 
@@ -46,7 +47,7 @@ int md5_verify(char* candidate, char* target){
             sprintf(&computed_hash[i*2], "%02x", digest[i]);
         }
     computed_hash[32] = '\0';
-    return strcasecmp(computed, target) == 0;
+    return strcasecmp(computed_hash, target) == 0;
 
 }
 
@@ -60,13 +61,14 @@ void *worker(void *arg){
         pthread_mutex_lock(&queue_mutex);
         //after grabbing the mutex, the worker checks if queue is not empty
         while(queue.count == 0){
-            if(done.done){
-                pthread_mutex_unlock(&queue_mutex)
+            if(queue.done){
+                pthread_mutex_unlock(&queue_mutex);
                 return NULL;
             }
-        }
         //if done is not true then the queue is empty, worker sleeps
-        pthread_cont_wait(&not_empty, &queue_mutex);
+        pthread_cond_wait(&not_empty, &queue_mutex);
+        }
+
         //after it wakes up it needs to retreve one of the words from the queue
         strncpy(word, queue.words[queue.head],255);
         word[255] = '\0';
@@ -77,9 +79,9 @@ void *worker(void *arg){
         pthread_mutex_unlock(&queue_mutex);
         
         if(md5_verify(word, hash)){
-            hashed_found_flag = 1;
+            hashes_found_flag = 1;
             printf("Password found: %s\n", word);
-            return NULL
+            return NULL;
         }
     }
 }
@@ -128,23 +130,23 @@ int main(int argc, char *argv[]) {
 
     pthread_mutex_init(&queue_mutex, NULL);
     pthread_cond_init(&not_empty, NULL);
-    pthread_cond_inti(&not_full, NULL);
+    pthread_cond_init(&not_full, NULL);
 
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
     for(int i = 0; i < num_threads; i++){
-        pthread_create(&threads[i], NULLm worker, NULL);
+        pthread_create(&threads[i], NULL, worker, NULL);
     }
 
     char buffer[256];
     while(fgets(buffer, sizeof(buffer), wordlist) != NULL){
-        buffer[strcspn(buffer, "\n")] = "\0";
+        buffer[strcspn(buffer, "\r\n")] = '\0';
 
         if(hashes_found_flag){
             break;
         }
         pthread_mutex_lock(&queue_mutex);
 
-        while(queue.count = QUEUE_SIZE){
+        while(queue.count == QUEUE_SIZE){
             pthread_cond_wait(&not_full, &queue_mutex);
         }
 
